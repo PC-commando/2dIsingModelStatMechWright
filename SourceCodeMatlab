@@ -1,0 +1,144 @@
+%%code by Gabby and Carissa and occasional debugging by Noor
+
+num_of_spins = 10;     % Number of spins
+num_of_flips = 10;    % Number of flips
+H_field      = 0;      % External H-field
+KT           = .1;    % Temperatue
+J            = 1;      % Spin pair coupling term
+ 
+% find beta
+beta         = 1/KT;   % beta = 1 / kT
+
+f1 = figure;
+f2 = figure;
+f3 = figure;
+ 
+% Randomize spins, -1 or 1
+spins = 2*randi(2,num_of_spins,num_of_spins)-3;
+%spins = ones(num_of_spins,num_of_spins); 
+
+vector_ff = [];
+vector_X = [];
+vector_C = [] ;
+% start flipping spins randomly
+for ff = 1:num_of_flips  
+   
+    
+   Pick_a_spin = [randi(num_of_spins),randi(num_of_spins)]; %chooses random (x,y) spin 
+   spin_minus_x  = Pick_a_spin(1) - 1;
+   spin_pos_x    = Pick_a_spin(1) + 1;
+   spin_minus_y  = Pick_a_spin(2) -1;
+   spin_pos_y    = Pick_a_spin(2) +1;
+   
+  %setting up four nearest neighbors  
+   SpinAbove        = [Pick_a_spin(1) spin_pos_y]; 
+   SpinBelow        = [Pick_a_spin(1) spin_minus_y];
+   SpinLeft         = [spin_minus_x Pick_a_spin(2)];
+   SpinRight        = [spin_pos_x Pick_a_spin(2)];
+   
+       %setting toroidal conditions
+       for ii = 1:num_of_spins
+           if Pick_a_spin == [1, ii]
+               % use Wrap around boundry conditions
+               spin_minus_x = num_of_spins;
+           end
+           if Pick_a_spin == [num_of_spins, ii]
+               % use Wrap around boundry conditions
+               spin_pos_x   = 1;
+           end  
+           %eliminate out of bounds values
+           if spin_minus_y <= 0
+               spin_minus_y = num_of_spins;
+           end 
+           if spin_pos_y >= num_of_spins 
+               spin_pos_y = 1;  
+           end
+           if spin_pos_x >= num_of_spins
+               spin_pos_x = 1;
+           end
+           if spin_minus_x <= 0
+               spin_minus_x = num_of_spins;
+           end
+       end
+   
+   % Energy change when spin flips
+   EH_final    = H_field * spins(Pick_a_spin(1), Pick_a_spin(2)) * (-1);
+   EH_initial  = H_field * spins(Pick_a_spin(1), Pick_a_spin(2));
+   
+   % Energy of pair interactions
+   EJ_final_Above  = J .* (spins(Pick_a_spin(1), Pick_a_spin(2)) .* spins(Pick_a_spin(1), spin_pos_y).* (-1));
+   EJ_final_Below  = J .* (spins(Pick_a_spin(1), Pick_a_spin(2)) .* spins(Pick_a_spin(1), spin_minus_y) .* (-1));
+   EJ_final_Left   = J .* (spins(Pick_a_spin(1), Pick_a_spin(2)) .* spins(spin_minus_x, Pick_a_spin(2)).* (-1));
+   EJ_final_Right  = J .* (spins(Pick_a_spin(1), Pick_a_spin(2)) .* spins(spin_pos_x, Pick_a_spin(2)).* (-1));
+  
+   EJ_initial_Above  = J .* (spins(Pick_a_spin(1), Pick_a_spin(2)) .* spins(Pick_a_spin(1), spin_pos_y));
+   EJ_initial_Below  = J .* (spins(Pick_a_spin(1), Pick_a_spin(2)) .* spins(Pick_a_spin(1), spin_minus_y));
+   EJ_initial_Left   = J .* (spins(Pick_a_spin(1), Pick_a_spin(2)) .* spins(spin_minus_x, Pick_a_spin(2)));
+   EJ_initial_Right  = J .* (spins(Pick_a_spin(1), Pick_a_spin(2)) .* spins(spin_pos_x, Pick_a_spin(2)));
+   
+   
+   % Determine the change in energy
+   dE = EJ_final_Above + EJ_final_Below + EJ_final_Left + EJ_final_Right + EH_final - EJ_initial_Above - EJ_initial_Below - EJ_initial_Left - EJ_initial_Right - EH_initial;
+   
+   % if the energy is negative flip the spin
+       if dE < 0
+           spins(Pick_a_spin(1), Pick_a_spin(2)) = -1 * spins(Pick_a_spin(1), Pick_a_spin(2));
+ 
+       %accounting for probability of the spins without enough energy 
+       %that still want to flip
+       else
+           prob     = exp(-beta * dE); %Prob of spin flip
+           myRand   = rand;            %Get a randon number from 0 to 1
+           if myRand < prob            %Flip that spin
+               spins(Pick_a_spin(1), Pick_a_spin(2)) = -1 * spins(Pick_a_spin(1), Pick_a_spin(2));
+           end
+       end
+
+   n = sum(spins); %adding up x values of spin
+   m = sum(n); %adding up y values of spin
+
+
+       %% Plot 
+
+    figure(f1)
+    for kk = 1:num_of_spins    
+        for ii = 1:num_of_spins
+            if spins(kk, ii) == 1 
+                c = 'c';
+            end
+            if spins(kk, ii) == -1 
+                c = 'm';
+            end
+            rectangle('Position', [kk-1 ii-1 1 1], 'facecolor', c); 
+            title(['m=' num2str(m), '  KT=' num2str(KT)])
+        end 
+    end
+ 
+  %can do drawnow if wanting to see each individual flip, but it is slower       
+         drawnow limitrate nocallbacks 
+
+         mean_msquared = ((m^2))/((num_of_spins)^2);
+         meanm_squared = ((abs(m))/((num_of_spins)^2))^2;
+         X = beta.* (mean_msquared - meanm_squared); 
+         
+    vector_ff(end + 1) = ff ;
+    vector_X(end + 1) = X;
+
+    figure(f2);
+    plot(vector_ff,vector_X);
+    xlim([0,num_of_flips]);
+    title('susceptibility X vs number of flips'); 
+    
+    k = 1.38.*10.^-23;
+    C =(num_of_spins).^2 .* k .* (J.*beta).^2 .* (sech(J.*beta)).^2;  
+    
+   % vector_C(end + 1) = C;
+    
+   % figure(f3);
+    %plot(vector_ff,vector_C);
+   % xlim([0,num_of_flips]);
+
+   % title('heat capacity C vs number of flips');
+
+      
+end
