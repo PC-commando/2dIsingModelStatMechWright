@@ -1,4 +1,4 @@
-clc
+clc           % version 2; by Carissa, Gabi, and Noor
 clear
  
 num_of_spins = 5;     % Number of spins
